@@ -150,13 +150,13 @@ public class ImageNativeWatermarkPlugin: NSObject, FlutterPlugin {
     private func imageOrientation(rotationAngle: Int, isFrontCamera: Bool) -> UIImage.Orientation {
         switch rotationAngle {
         case 90:
-            return isFrontCamera ? .leftMirrored : .right
+            return .right
         case 180:
-            return isFrontCamera ? .downMirrored : .down
+            return .down
         case 270:
-            return isFrontCamera ? .rightMirrored : .left
+            return .left
         default:
-            return isFrontCamera ? .upMirrored : .up
+            return .up
         }
     }
 }
