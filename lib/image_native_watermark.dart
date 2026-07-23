@@ -1,8 +1,14 @@
+/// High-performance native image processing and watermarking for Flutter.
+library;
+
 import 'dart:io';
 import 'package:flutter/services.dart';
 
 /// A native image processing and watermarking utility.
 class ImageNativeWatermark {
+  /// Private constructor to prevent instantiation.
+  const ImageNativeWatermark._();
+
   static const MethodChannel _channel = MethodChannel('image_native_watermark');
 
   /// Converts raw camera bytes into a watermarked, compressed JPEG file.
