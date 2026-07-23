@@ -17,8 +17,7 @@ Add `image_native_watermark` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  image_native_watermark:
-    path: ../image_native_watermark # or package version
+  image_native_watermark: 0.0.2
 ```
 
 Or run:
