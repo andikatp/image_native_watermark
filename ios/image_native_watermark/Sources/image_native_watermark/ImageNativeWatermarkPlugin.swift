@@ -69,11 +69,27 @@ public class ImageNativeWatermarkPlugin: NSObject, FlutterPlugin {
 
         UIGraphicsBeginImageContextWithOptions(orientedImage.size, true, 1.0)
         orientedImage.draw(in: CGRect(origin: .zero, size: orientedImage.size))
-        guard let normalized = UIGraphicsGetImageFromCurrentImageContext() else {
+        guard var normalized = UIGraphicsGetImageFromCurrentImageContext() else {
             UIGraphicsEndImageContext()
             throw NSError(domain: "ImageNativeWatermark", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to normalize orientation"])
         }
         UIGraphicsEndImageContext()
+
+        // iOS front camera raw BGRA data is inherently mirrored — flip horizontally
+        if isFrontCamera {
+            UIGraphicsBeginImageContextWithOptions(normalized.size, true, 1.0)
+            guard let flipCtx = UIGraphicsGetCurrentContext() else {
+                UIGraphicsEndImageContext()
+                throw NSError(domain: "ImageNativeWatermark", code: 5, userInfo: [NSLocalizedDescriptionKey: "Failed to create flip context"])
+            }
+            flipCtx.translateBy(x: normalized.size.width, y: 0)
+            flipCtx.scaleBy(x: -1.0, y: 1.0)
+            normalized.draw(in: CGRect(origin: .zero, size: normalized.size))
+            if let flipped = UIGraphicsGetImageFromCurrentImageContext() {
+                normalized = flipped
+            }
+            UIGraphicsEndImageContext()
+        }
 
         var finalSize = normalized.size
         if Int(finalSize.width) > targetMaxWidth {
