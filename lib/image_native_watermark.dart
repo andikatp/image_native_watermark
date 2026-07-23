@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/services.dart';
 
+/// A native image processing and watermarking utility.
 class ImageNativeWatermark {
   static const MethodChannel _channel = MethodChannel('image_native_watermark');
 
@@ -28,6 +30,32 @@ class ImageNativeWatermark {
       'bytesPerRow': bytesPerRow,
       'rotationAngle': rotationAngle,
       'isFrontCamera': isFrontCamera,
+      'watermarkText': watermarkText,
+      'quality': quality,
+      'targetMaxWidth': targetMaxWidth,
+      'outputPath': outputPath,
+    });
+    return result;
+  }
+
+  /// Adds a watermark and resizes/compresses an existing image file (e.g. from ImagePicker).
+  ///
+  /// Reads the image from [imagePath] (or [imageBytes]), applies [watermarkText]
+  /// with optional [targetMaxWidth] and [quality] compression natively, and saves
+  /// the output to [outputPath].
+  static Future<String?> processImagePath({
+    required String imagePath,
+    required String watermarkText,
+    required String outputPath,
+    int quality = 85,
+    int targetMaxWidth = 1080,
+  }) async {
+    final file = File(imagePath);
+    if (!await file.exists()) return null;
+    final bytes = await file.readAsBytes();
+
+    final result = await _channel.invokeMethod<String>('processImageFile', {
+      'bytes': bytes,
       'watermarkText': watermarkText,
       'quality': quality,
       'targetMaxWidth': targetMaxWidth,

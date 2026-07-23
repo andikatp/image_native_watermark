@@ -30,44 +30,85 @@ class ImageNativeWatermarkPlugin: FlutterPlugin, MethodCallHandler {
   }
 
   override fun onMethodCall(call: MethodCall, result: Result) {
-    if (call.method == "processFrame") {
-      val bytes = call.argument<ByteArray>("bytes")!!
-      val width = call.argument<Int>("width")!!
-      val height = call.argument<Int>("height")!!
-      val rotationAngle = call.argument<Int>("rotationAngle")!!
-      val isFrontCamera = call.argument<Boolean>("isFrontCamera")!!
-      val watermarkText = call.argument<String>("watermarkText")!!
-      val quality = call.argument<Int>("quality")!!
-      val targetMaxWidth = call.argument<Int>("targetMaxWidth")!!
-      val outputPath = call.argument<String>("outputPath")!!
+    val mainHandler = Handler(Looper.getMainLooper())
 
-      val mainHandler = Handler(Looper.getMainLooper())
-      
-      Thread {
-          try {
-              val path = processFrame(
-                  bytes, width, height, rotationAngle,
-                  isFrontCamera, watermarkText, quality,
-                  targetMaxWidth, outputPath
-              )
-              mainHandler.post { result.success(path) }
-          } catch (e: Exception) {
-              mainHandler.post {
-                  result.error(
-                      "PROCESS_ERROR",
-                      e.message,
-                      e.stackTraceToString()
-                  )
-              }
-          }
-      }.start()
-    } else {
-      result.notImplemented()
+    when (call.method) {
+      "processFrame" -> {
+        val bytes = call.argument<ByteArray>("bytes")!!
+        val width = call.argument<Int>("width")!!
+        val height = call.argument<Int>("height")!!
+        val rotationAngle = call.argument<Int>("rotationAngle")!!
+        val isFrontCamera = call.argument<Boolean>("isFrontCamera")!!
+        val watermarkText = call.argument<String>("watermarkText")!!
+        val quality = call.argument<Int>("quality")!!
+        val targetMaxWidth = call.argument<Int>("targetMaxWidth")!!
+        val outputPath = call.argument<String>("outputPath")!!
+
+        Thread {
+            try {
+                val path = processFrame(
+                    bytes, width, height, rotationAngle,
+                    isFrontCamera, watermarkText, quality,
+                    targetMaxWidth, outputPath
+                )
+                mainHandler.post { result.success(path) }
+            } catch (e: Exception) {
+                mainHandler.post {
+                    result.error(
+                        "PROCESS_ERROR",
+                        e.message,
+                        e.stackTraceToString()
+                    )
+                }
+            }
+        }.start()
+      }
+      "processImageFile" -> {
+        val bytes = call.argument<ByteArray>("bytes")!!
+        val watermarkText = call.argument<String>("watermarkText")!!
+        val quality = call.argument<Int>("quality")!!
+        val targetMaxWidth = call.argument<Int>("targetMaxWidth")!!
+        val outputPath = call.argument<String>("outputPath")!!
+
+        Thread {
+            try {
+                val path = processImageFile(
+                    bytes, watermarkText, quality,
+                    targetMaxWidth, outputPath
+                )
+                mainHandler.post { result.success(path) }
+            } catch (e: Exception) {
+                mainHandler.post {
+                    result.error(
+                        "PROCESS_ERROR",
+                        e.message,
+                        e.stackTraceToString()
+                    )
+                }
+            }
+        }.start()
+      }
+      else -> {
+        result.notImplemented()
+      }
     }
   }
 
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
     channel.setMethodCallHandler(null)
+  }
+
+  private fun processImageFile(
+      imageBytes: ByteArray,
+      watermarkText: String,
+      quality: Int,
+      targetMaxWidth: Int,
+      outputPath: String
+  ): String {
+      var bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+          ?: throw IllegalArgumentException("Failed to decode image bytes")
+
+      return renderAndSaveBitmap(bitmap, watermarkText, quality, targetMaxWidth, outputPath)
   }
 
   private fun processFrame(
@@ -102,6 +143,18 @@ class ImageNativeWatermarkPlugin: FlutterPlugin, MethodCallHandler {
           bitmap = transformed
       }
 
+      return renderAndSaveBitmap(bitmap, watermarkText, quality, targetMaxWidth, outputPath)
+  }
+
+  private fun renderAndSaveBitmap(
+      inputBitmap: Bitmap,
+      watermarkText: String,
+      quality: Int,
+      targetMaxWidth: Int,
+      outputPath: String
+  ): String {
+      var bitmap = inputBitmap
+
       if (bitmap.width > targetMaxWidth) {
           val scale = targetMaxWidth.toFloat() / bitmap.width
           val newHeight = (bitmap.height * scale).toInt()
@@ -128,13 +181,11 @@ class ImageNativeWatermarkPlugin: FlutterPlugin, MethodCallHandler {
               color = Color.argb(51, 0, 0, 0) // ~0.2 alpha
           }
 
-          // 1. Trim leading spaces from each line, filter empties
           val lines = watermarkText.split("\n")
               .map { it.trim() }
               .filter { it.isNotEmpty() }
 
           if (lines.isNotEmpty()) {
-              // 2. Calculate bounding box for the entire text block
               var maxLineWidth = 0f
               var totalTextHeight = 0f
               val lineHeights = mutableListOf<Float>()
@@ -142,17 +193,15 @@ class ImageNativeWatermarkPlugin: FlutterPlugin, MethodCallHandler {
               for (line in lines) {
                   val textBounds = Rect()
                   textPaint.getTextBounds(line, 0, line.length, textBounds)
-                  val lw = textPaint.measureText(line) // more accurate than bounds width
+                  val lw = textPaint.measureText(line)
                   if (lw > maxLineWidth) {
                       maxLineWidth = lw
                   }
-                  // We add a little spacing between lines
                   val lh = textBounds.height().toFloat()
                   lineHeights.add(lh)
-                  totalTextHeight += lh + 8f 
+                  totalTextHeight += lh + 8f
               }
 
-              // 3. Define the single background rectangle
               val x = 40f
               val yStart = bitmap.height * 0.7f
               
@@ -161,11 +210,10 @@ class ImageNativeWatermarkPlugin: FlutterPlugin, MethodCallHandler {
                   x - bgPadding,
                   yStart - lineHeights[0] - bgPadding,
                   x + maxLineWidth + bgPadding,
-                  yStart + totalTextHeight - 8f + bgPadding, // subtract last 8f spacing
+                  yStart + totalTextHeight - 8f + bgPadding,
                   bgPaint
               )
 
-              // 4. Draw all text lines inside the rectangle (left aligned)
               var currentY = yStart
               for (i in lines.indices) {
                   canvas.drawText(lines[i], x, currentY, textPaint)

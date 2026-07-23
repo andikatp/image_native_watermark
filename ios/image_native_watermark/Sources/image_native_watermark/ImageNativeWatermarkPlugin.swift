@@ -10,12 +10,12 @@ public class ImageNativeWatermarkPlugin: NSObject, FlutterPlugin {
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-        if call.method == "processFrame" {
-            guard let args = call.arguments as? [String: Any] else {
-                result(FlutterError(code: "INVALID_ARGS", message: "Invalid arguments", details: nil))
-                return
-            }
+        guard let args = call.arguments as? [String: Any] else {
+            result(FlutterError(code: "INVALID_ARGS", message: "Invalid arguments", details: nil))
+            return
+        }
 
+        if call.method == "processFrame" {
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
                     let path = try self.processFrame(args: args)
@@ -26,9 +26,35 @@ public class ImageNativeWatermarkPlugin: NSObject, FlutterPlugin {
                     }
                 }
             }
+        } else if call.method == "processImageFile" {
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let path = try self.processImageFile(args: args)
+                    DispatchQueue.main.async { result(path) }
+                } catch {
+                    DispatchQueue.main.async {
+                        result(FlutterError(code: "PROCESS_ERROR", message: error.localizedDescription, details: nil))
+                    }
+                }
+            }
         } else {
             result(FlutterMethodNotImplemented)
         }
+    }
+
+    private func processImageFile(args: [String: Any]) throws -> String {
+        let flutterData = args["bytes"] as! FlutterStandardTypedData
+        let bytes = flutterData.data
+        let watermarkText = args["watermarkText"] as! String
+        let quality = args["quality"] as! Int
+        let targetMaxWidth = args["targetMaxWidth"] as! Int
+        let outputPath = args["outputPath"] as! String
+
+        guard let image = UIImage(data: bytes) else {
+            throw NSError(domain: "ImageNativeWatermark", code: 5, userInfo: [NSLocalizedDescriptionKey: "Failed to decode UIImage from bytes"])
+        }
+
+        return try renderAndSaveImage(image: image, watermarkText: watermarkText, quality: quality, targetMaxWidth: targetMaxWidth, outputPath: outputPath)
     }
 
     private func processFrame(args: [String: Any]) throws -> String {
@@ -75,7 +101,11 @@ public class ImageNativeWatermarkPlugin: NSObject, FlutterPlugin {
         }
         UIGraphicsEndImageContext()
 
-        var finalSize = normalized.size
+        return try renderAndSaveImage(image: normalized, watermarkText: watermarkText, quality: quality, targetMaxWidth: targetMaxWidth, outputPath: outputPath)
+    }
+
+    private func renderAndSaveImage(image: UIImage, watermarkText: String, quality: Int, targetMaxWidth: Int, outputPath: String) throws -> String {
+        var finalSize = image.size
         if Int(finalSize.width) > targetMaxWidth {
             let scale = CGFloat(targetMaxWidth) / finalSize.width
             finalSize = CGSize(width: CGFloat(targetMaxWidth), height: finalSize.height * scale)
@@ -87,7 +117,7 @@ public class ImageNativeWatermarkPlugin: NSObject, FlutterPlugin {
             throw NSError(domain: "ImageNativeWatermark", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to create context"])
         }
 
-        normalized.draw(in: CGRect(origin: .zero, size: finalSize))
+        image.draw(in: CGRect(origin: .zero, size: finalSize))
 
         if !watermarkText.isEmpty {
             let textAttributes: [NSAttributedString.Key: Any] = [
@@ -95,13 +125,11 @@ public class ImageNativeWatermarkPlugin: NSObject, FlutterPlugin {
                 .foregroundColor: UIColor.white,
             ]
 
-            // 1. Trim leading spaces from each line, filter empties
             let lines = watermarkText.components(separatedBy: "\n")
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty }
 
             if !lines.isEmpty {
-                // 2. Calculate bounding box for the entire text block
                 var maxLineWidth: CGFloat = 0
                 var totalTextHeight: CGFloat = 0
                 var lineHeights: [CGFloat] = []
@@ -111,10 +139,9 @@ public class ImageNativeWatermarkPlugin: NSObject, FlutterPlugin {
                     if textSize.width > maxLineWidth { maxLineWidth = textSize.width }
                     let lh = textSize.height
                     lineHeights.append(lh)
-                    totalTextHeight += lh + 3 // 3 is line spacing
+                    totalTextHeight += lh + 3
                 }
 
-                // 3. Define the single background rectangle
                 let x: CGFloat = 40
                 let yStart: CGFloat = finalSize.height * 0.7
                 let bgPadding: CGFloat = 15
@@ -122,12 +149,11 @@ public class ImageNativeWatermarkPlugin: NSObject, FlutterPlugin {
                 ctx.setFillColor(UIColor(red: 0, green: 0, blue: 0, alpha: 0.2).cgColor)
                 ctx.fill(CGRect(
                     x: x - bgPadding,
-                    y: yStart - lineHeights[0] - bgPadding, // Start higher to account for first line height
+                    y: yStart - lineHeights[0] - bgPadding,
                     width: maxLineWidth + bgPadding * 2,
-                    height: totalTextHeight + bgPadding * 2 - 3 // Subtract last spacing
+                    height: totalTextHeight + bgPadding * 2 - 3
                 ))
 
-                // 4. Draw all text lines inside the rectangle (left aligned)
                 var currentY = yStart - lineHeights[0]
                 for (i, line) in lines.enumerated() {
                     (line as NSString).draw(at: CGPoint(x: x, y: currentY), withAttributes: textAttributes)

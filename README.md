@@ -1,14 +1,15 @@
 # image_native_watermark
 
-A high-performance Flutter plugin for native camera frame processing, rotation, scaling, text watermarking, and JPEG compression on Android and iOS.
+A high-performance Flutter plugin for native camera frame processing and image file watermarking (rotation, scaling, text overlay, and JPEG compression) on Android and iOS.
 
 ## Features
 
 - **⚡ High Performance Native Processing**: Executes the full image pipeline natively (Android Kotlin/Bitmap & iOS Swift/CoreGraphics) bypassing Dart thread overhead and Shorebird interpreter slowdowns.
-- **🔄 Stream Frame Handling**: Converts raw camera stream bytes (`NV21` / `BGRA8888`) directly into watermarked compressed JPEG images.
+- **📷 Camera Frame Processing**: Converts raw camera stream bytes (`NV21` / `BGRA8888`) directly into watermarked compressed JPEG images.
+- **🖼️ Image File Watermarking**: Watermark existing image files (e.g. from `image_picker` or file system) via `ImageNativeWatermark.processImagePath`.
 - **📱 Orientation & Mirroring**: Supports hardware rotation angle alignment and front camera horizontal mirroring.
 - **📐 Dynamic Scaling & Compression**: Custom target max width resizing and JPEG quality compression.
-- **✍️ Text Overlay**: Overlay custom text watermark timestamp or custom metadata directly onto the frame.
+- **✍️ Text Overlay**: Overlay custom text watermark timestamp or custom metadata directly onto the image.
 
 ## Installation
 
@@ -16,7 +17,8 @@ Add `image_native_watermark` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  image_native_watermark: ^0.0.1
+  image_native_watermark:
+    path: ../image_native_watermark # or package version
 ```
 
 Or run:
@@ -26,6 +28,26 @@ flutter pub add image_native_watermark
 ```
 
 ## Usage
+
+### 1. Watermark Image File (e.g., ImagePicker)
+
+```dart
+import 'package:image_native_watermark/image_native_watermark.dart';
+
+Future<String?> watermarkPickedImage(String inputPath, String outputPath) async {
+  final String? result = await ImageNativeWatermark.processImagePath(
+    imagePath: inputPath,
+    watermarkText: "Location: -6.200000, 106.816666\nDate: 2026-07-23 11:00:00",
+    outputPath: outputPath,
+    quality: 85,
+    targetMaxWidth: 1080,
+  );
+
+  return result;
+}
+```
+
+### 2. Stream Frame Handling (Raw Camera Stream)
 
 ```dart
 import 'package:flutter/services.dart';
