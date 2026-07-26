@@ -1,5 +1,9 @@
 # image_native_watermark
 
+[![pub package](https://img.shields.io/pub/v/image_native_watermark.svg)](https://pub.dev/packages/image_native_watermark)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Platform](https://img.shields.io/badge/platform-flutter%20%7C%20android%20%7C%20ios-blue.svg)](https://pub.dev/packages/image_native_watermark)
+
 A high-performance Flutter plugin for native camera frame processing and image file watermarking (rotation, scaling, text overlay, and JPEG compression) on Android and iOS.
 
 ## Features
@@ -73,6 +77,7 @@ Future<String?> processCameraFrame(Uint8List frameBytes, int width, int height) 
 ## Author
 
 **Andika Tri Prasetya**
+
 - Email: triprasetya_andika@yahoo.com
 - GitHub: [github.com/andikatp](https://github.com/andikatp)
 
