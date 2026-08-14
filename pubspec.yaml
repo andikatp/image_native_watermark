@@ -1,12 +1,12 @@
 name: image_native_watermark
 description: "High-performance native Android & iOS camera frame processing and watermarking (NV21/BGRA to JPEG, rotation, flipping, resizing, and text overlay)."
-version: 0.0.3
+version: 0.0.4
 homepage: https://github.com/andikatp/image_native_watermark
 repository: https://github.com/andikatp/image_native_watermark
 issue_tracker: https://github.com/andikatp/image_native_watermark/issues
 
 environment:
-  sdk: ^3.12.2
+  sdk: ">=3.0.0 <4.0.0"
   flutter: ">=3.3.0"
 
 dependencies:
